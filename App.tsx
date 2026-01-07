@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
-import { IncidentDetail } from './pages/IncidentDetail';
+import { Monitor } from './pages/Monitor';
 import { UserManagement } from './pages/UserManagement';
 import { Alerts } from './pages/Alerts';
 import { Reports } from './pages/Reports';
@@ -60,7 +60,7 @@ const App: React.FC = () => {
       {/* Main Content Area */}
       <main className="flex-1 overflow-y-auto no-scrollbar pb-20 md:pb-0">
         {currentView === 'dashboard' && <Dashboard onOpenIncident={() => setCurrentView('incident')} />}
-        {currentView === 'incident' && <IncidentDetail onBack={() => setCurrentView('dashboard')} />}
+        {currentView === 'incident' && <Monitor onBack={() => setCurrentView('dashboard')} />}
         {currentView === 'users' && <UserManagement />}
         {currentView === 'alerts' && <Alerts />}
         {currentView === 'reports' && <Reports />}

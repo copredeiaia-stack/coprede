@@ -7,6 +7,7 @@ export interface User {
   status: 'active' | 'inactive';
   avatar?: string;
   initials?: string;
+  address?: string;
 }
 
 export interface Incident {

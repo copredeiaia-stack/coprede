@@ -11,6 +11,9 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [address, setAddress] = useState('');
+  const [avatar, setAvatar] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -27,7 +30,17 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         if (error) throw error;
         onLogin();
       } else if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({ email, password });
+        const { error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: fullName,
+              address: address,
+              avatar_url: avatar
+            }
+          }
+        });
         if (error) throw error;
         setMessage('Cadastro realizado! Verifique seu e-mail para confirmar.');
         setMode('login');
@@ -70,6 +83,74 @@ export const Login: React.FC<LoginProps> = ({ onLogin }) => {
         <form className="p-8 space-y-6" onSubmit={handleAuth}>
           {error && <div className="bg-red-500/10 border border-red-500/50 p-4 rounded-xl text-red-400 text-sm">{error}</div>}
           {message && <div className="bg-success/10 border border-success/50 p-4 rounded-xl text-success text-sm">{message}</div>}
+
+          {mode === 'signup' && (
+            <div className="space-y-4">
+              <div className="flex flex-col items-center gap-4 mb-2">
+                <div className="relative group cursor-pointer" onClick={() => document.getElementById('signup-avatar')?.click()}>
+                  <div className="h-24 w-24 rounded-3xl bg-primary/10 border-2 border-dashed border-primary/30 flex items-center justify-center overflow-hidden hover:border-primary/50 transition-all">
+                    {avatar ? (
+                      <img src={avatar} className="h-full w-full object-cover" alt="Avatar" />
+                    ) : (
+                      <span className="material-symbols-outlined text-3xl text-primary/40">add_a_photo</span>
+                    )}
+                  </div>
+                  <div className="absolute -bottom-2 -right-2 h-8 w-8 bg-primary rounded-xl flex items-center justify-center text-white shadow-lg group-hover:scale-110 transition-transform">
+                    <span className="material-symbols-outlined text-sm">upload</span>
+                  </div>
+                </div>
+                <input
+                  id="signup-avatar"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      const reader = new FileReader();
+                      reader.onloadend = () => setAvatar(reader.result as string);
+                      reader.readAsDataURL(file);
+                    }
+                  }}
+                />
+                <p className="text-[10px] font-black uppercase text-gray-600 tracking-widest">Sua Foto de Perfil</p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-300">Nome Completo</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined text-gray-500">person</span>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="Nome e Sobrenome"
+                    className="w-full bg-[#1a0f10] border-white/5 rounded-2xl pl-12 pr-4 py-4 text-white placeholder-gray-600 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-sm font-semibold text-gray-300">Endereço</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+                    <span className="material-symbols-outlined text-gray-500">location_on</span>
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={address}
+                    onChange={(e) => setAddress(e.target.value)}
+                    placeholder="Rua, Número, Bairro, Cidade"
+                    className="w-full bg-[#1a0f10] border-white/5 rounded-2xl pl-12 pr-4 py-4 text-white placeholder-gray-600 focus:ring-2 focus:ring-primary focus:border-transparent transition-all outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <label className="text-sm font-semibold text-gray-300">E-mail Corporativo</label>
