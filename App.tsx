@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect } from 'react';
+import { supabase } from './supabaseClient';
 import { Login } from './pages/Login';
 import { Dashboard } from './pages/Dashboard';
 import { IncidentDetail } from './pages/IncidentDetail';
@@ -12,20 +12,44 @@ type View = 'login' | 'dashboard' | 'incident' | 'users' | 'alerts' | 'reports';
 
 const App: React.FC = () => {
   const [currentView, setCurrentView] = useState<View>('login');
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [session, setSession] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  const handleLogin = () => {
-    setIsAuthenticated(true);
-    setCurrentView('dashboard');
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      if (session) setCurrentView('dashboard');
+      setLoading(false);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setSession(session);
+      if (session) {
+        setCurrentView('dashboard');
+      } else {
+        setCurrentView('login');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
   };
 
-  const handleLogout = () => {
-    setIsAuthenticated(false);
-    setCurrentView('login');
-  };
+  if (loading) {
+    return (
+      <div className="h-screen bg-background-dark flex items-center justify-center">
+        <div className="animate-spin h-10 w-10 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
-  if (!isAuthenticated) {
-    return <Login onLogin={handleLogin} />;
+  if (!session) {
+    return <Login onLogin={() => setCurrentView('dashboard')} />;
   }
 
   return (

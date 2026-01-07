@@ -1,20 +1,40 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
-</div>
+# COP Rede Dashboard
 
-# Run and deploy your AI Studio app
+Este é um Dashboard de Operações de Rede (NOC) moderno e responsivo, integrado com Supabase para autenticação.
 
-This contains everything you need to run your app locally.
+## Funcionalidades
+- **Autenticação Segura**: Login, Cadastro e Recuperação de Senha via Supabase.
+- **Monitoramento em Tempo Real**: Dashboard dinâmico para gestão de ocorrências.
+- **Gestão de Usuários**: Controle de acesso e perfis.
 
-View your app in AI Studio: https://ai.studio/apps/temp/1
+## Como Executar Localmente
 
-## Run Locally
+**Pré-requisitos:** Node.js (v18+)
 
-**Prerequisites:**  Node.js
+1. **Instale as dependências:**
+   ```bash
+   npm install
+   ```
 
+2. **Configure as Variáveis de Ambiente:**
+   Crie um arquivo `.env.local` na raiz do projeto (se não existir) e adicione suas credenciais do Supabase:
+   ```env
+   VITE_SUPABASE_URL=sua_url_do_supabase
+   VITE_SUPABASE_ANON_KEY=sua_chave_anonima_do_supabase
+   ```
+   *Nota: Você pode encontrar esses dados nas configurações de API do painel do Supabase.*
 
-1. Install dependencies:
-   `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+3. **Inicie o servidor de desenvolvimento:**
+   ```bash
+   npm run dev
+   ```
+
+4. **Acesse no navegador:**
+   O projeto estará disponível em `http://localhost:3000`.
+
+## Tecnologias Utilizadas
+- **React 19**
+- **Vite** (Build tool)
+- **Supabase** (Auth & Backend)
+- **Tailwind CSS** (Styling)
+- **Material Symbols** (Icons)
