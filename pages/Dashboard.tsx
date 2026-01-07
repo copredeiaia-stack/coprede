@@ -29,6 +29,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenIncident, session })
     const loadData = async () => {
       const isInitial = allIncidents.length === 0;
       try {
+        // Only show full loading state if we have absolutely no data
         if (isInitial) setLoading(true);
         const data = await fetchRawIncidents();
         setAllIncidents(data);
@@ -37,7 +38,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenIncident, session })
         if (isInitial) setError('Erro ao carregar dados operacionais');
         console.error('Erro na sincronização de fundo:', err);
       } finally {
-        if (isInitial) setLoading(false);
+        setLoading(false);
       }
     };
 

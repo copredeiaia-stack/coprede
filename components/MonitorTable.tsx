@@ -21,7 +21,8 @@ export const MonitorTable: React.FC<MonitorTableProps> = ({ onSelect }) => {
 
     useEffect(() => {
         const loadData = async () => {
-            setLoading(true);
+            const isInitial = data.length === 0;
+            if (isInitial) setLoading(true);
             try {
                 const [newMonitorData, sgoData] = await Promise.all([
                     fetchNewMonitor(),
