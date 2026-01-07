@@ -38,3 +38,11 @@ Este é um Dashboard de Operações de Rede (NOC) moderno e responsivo, integrad
 - **Supabase** (Auth & Backend)
 - **Tailwind CSS** (Styling)
 - **Material Symbols** (Icons)
+
+## Deploy no GitHub Pages
+O projeto está configurado para deploy automático via **GitHub Actions**.
+
+**Importante**: Para que o deploy funcione, siga estes passos no seu repositório no GitHub:
+1. Vá em **Settings** > **Pages**.
+2. Em **Build and deployment** > **Source**, altere de "Deploy from a branch" para **"GitHub Actions"**.
+3. Na próxima vez que você fizer um `git push`, o GitHub irá compilar e publicar o site automaticamente.
