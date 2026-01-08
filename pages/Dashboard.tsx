@@ -16,7 +16,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenIncident, session })
   const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
 
   // Filter States
-  const [selectedTime, setSelectedTime] = useState<string>('Hoje');
+  const [selectedTime, setSelectedTime] = useState<string>('Tudo');
   const [selectedMarkets, setSelectedMarkets] = useState<string[]>([]);
   const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [selectedGroups, setSelectedGroups] = useState<string[]>([]);
@@ -402,7 +402,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenIncident, session })
         </div>
 
         <div className="col-span-12 lg:col-span-5 bg-surface-dark rounded-3xl p-8 border border-white/5">
-          <h2 className="text-xl font-bold text-white mb-8">Top Eventos</h2>
+          <h2 className="text-xl font-bold text-white mb-8">Top Falhas</h2>
           <div className="space-y-6">
             {filteredMetrics.techData.map((tech, idx) => (
               <div key={idx}>

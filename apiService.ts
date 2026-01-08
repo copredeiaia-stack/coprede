@@ -40,20 +40,43 @@ export const fetchRawIncidents = async (): Promise<ApiIncident[]> => {
     }
 
     // Adapt snake_case (DB) to camelCase (Frontend)
-    // We try both to be robust against schema variations
-    return (data || []).map((item: any) => ({
-        data: item.data || item.Data || new Date().toISOString(), // Fallback if missing
-        idEvento: item.idEvento || item.id_evento || item.Ticket || 0,
-        tipoEvento: item.tipoEvento || item.tipo_evento || item.TipoEvento || 'N/A',
-        mercado: item.mercado || item.Mercado || 'N/A',
-        natureza: item.natureza || item.Natureza || 'Indefinido',
-        sintoma: item.sintoma || item.Sintoma || 'N/A',
-        cidade: item.cidade || item.Cidade || 'N/A',
-        grupo: item.grupo || item.Grupo || item.Cluster || 'N/A',
-        equipamento: item.equipamento || item.Equipamento || 'N/A',
-        dataPrev: item.dataPrev || item.data_prev || null,
-        associados: item.associados || []
-    }));
+    // Adapt snake_case (DB) to camelCase (Frontend)
+    return (data || []).map((item: any) => {
+        // Handle 'Data Inicio' which might be a timestamp string "1752666900000"
+        let dataIso = new Date().toISOString();
+        const rawDate = item['Data Inicio'] || item.data || item.Data;
+
+        if (rawDate) {
+            // Check if it's a timestamp string (digits only)
+            if (/^\d+$/.test(String(rawDate))) {
+                dataIso = new Date(Number(rawDate)).toISOString();
+            } else {
+                dataIso = new Date(rawDate).toISOString();
+            }
+        }
+
+        return {
+            data: dataIso,
+            idEvento: item.id || item.idEvento || item.Ticket || 0,
+
+            // Map 'Sintoma' column (e.g., "SEM SINAL") to 'tipoEvento' (Category)
+            tipoEvento: item['Sintoma'] || item.tipoEvento || 'N/A',
+
+            // Map 'Abrangencia' or 'Mercado'
+            mercado: item['Abrangencia'] || item.mercado || 'N/A',
+
+            natureza: item.natureza || 'Indefinido',
+
+            // Map 'Falha' column (e.g., "Problema HFC") to 'sintoma' (Specific Cause) for the chart
+            sintoma: item['Falha'] || item.sintoma || item['Descrição'] || 'N/A',
+
+            cidade: item.cidade || 'N/A',
+            grupo: item.grupo || 'N/A',
+            equipamento: item.equipamento || 'N/A',
+            dataPrev: item['Previsão'] || item.dataPrev || null,
+            associados: item.associados || []
+        };
+    });
 };
 
 export const calculateMetrics = (conteudo: ApiIncident[]): DashboardMetrics => {
@@ -73,10 +96,12 @@ export const calculateMetrics = (conteudo: ApiIncident[]): DashboardMetrics => {
         .map(([time, val]) => ({ time, val }))
         .sort((a, b) => a.time.localeCompare(b.time));
 
-    // Event Type Data
+    // Event Type Data (Now Falhas/Sintomas)
     const eventTypeMap: Record<string, number> = {};
     conteudo.forEach(item => {
-        eventTypeMap[item.tipoEvento] = (eventTypeMap[item.tipoEvento] || 0) + 1;
+        // Use 'sintoma' for Top Falhas, fallback to 'tipoEvento' if missing
+        const key = item.sintoma || item.tipoEvento || 'Outros';
+        eventTypeMap[key] = (eventTypeMap[key] || 0) + 1;
     });
 
     const colors = ['#e0062e', '#a855f7', '#3b82f6', '#10b981', '#f59e0b'];

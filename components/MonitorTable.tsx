@@ -26,6 +26,7 @@ interface MonitorTableProps {
 export const MonitorTable: React.FC<MonitorTableProps> = ({ onSelect }) => {
     const [data, setData] = useState<MonitorRow[]>([]);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     // Filter States
     const [clusterFilter, setClusterFilter] = useState<string>('Todos');
@@ -37,6 +38,9 @@ export const MonitorTable: React.FC<MonitorTableProps> = ({ onSelect }) => {
             if (isInitial) setLoading(true);
             try {
                 const rawData = await fetchRawIncidents();
+
+                // Clear error if successful
+                setError(null);
 
                 const normalizedData: MonitorRow[] = rawData.map((item) => {
                     const timeStr = item.data.split('T')[1]?.substring(0, 5) || '00:00';
@@ -59,8 +63,9 @@ export const MonitorTable: React.FC<MonitorTableProps> = ({ onSelect }) => {
                 });
 
                 setData(normalizedData);
-            } catch (error) {
-                console.error('Error fetching monitor data:', error);
+            } catch (err: any) {
+                console.error('Error fetching monitor data:', err);
+                setError(err.message || 'Falha na conexão com o banco de dados');
             } finally {
                 setLoading(false);
             }
@@ -104,10 +109,28 @@ export const MonitorTable: React.FC<MonitorTableProps> = ({ onSelect }) => {
         );
     }
 
+    // Error State Display
+    if (error) {
+        return (
+            <div className="p-8 bg-red-500/10 border border-red-500/20 rounded-3xl text-center">
+                <span className="material-symbols-outlined text-4xl text-red-500 mb-2">error</span>
+                <h3 className="text-lg font-bold text-white mb-1">Erro de Conexão</h3>
+                <p className="text-sm text-red-400 font-mono mb-4">{error}</p>
+                <button
+                    onClick={() => window.location.reload()}
+                    className="px-4 py-2 bg-red-500/20 text-red-400 rounded-lg text-xs font-bold hover:bg-red-500/30 transition-colors"
+                >
+                    Tentar Novamente
+                </button>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col gap-4">
             {/* Control Bar */}
             <div className="flex flex-wrap items-center justify-between gap-4 p-4 bg-surface-dark rounded-2xl border border-white/5">
+                {/* ... filters ... */}
                 <div className="flex items-center gap-4">
                     {/* Cluster Filter */}
                     <div className="flex flex-col gap-1">
