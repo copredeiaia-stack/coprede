@@ -33,6 +33,25 @@ export interface DashboardMetrics {
     outages: { market: string; type: string; count: number }[];
 }
 
+export interface SgoIncident {
+    ticket: string;
+    incidente: string;
+    sintoma: string;
+    acionado: string;
+    dataInicio: string;
+    observacao: string;
+    cidade: string;
+    node: string;
+    tecnologia: string;
+    rede: string;
+    sintomaOper: string;
+    impacto: string;
+    regional: string;
+    grupo: string;
+    cluster: string;
+    subcluster: string;
+}
+
 // Legacy API URL removed in favor of Supabase
 // const API_URL = 'http://201.55.232.150/api/relatorios/acompanhamentoCentralizado/tabela-analitica-extracao?loginUsuario=N0057998';
 
@@ -46,7 +65,6 @@ export const fetchRawIncidents = async (): Promise<ApiIncident[]> => {
         throw new Error('Falha ao carregar dados do Supabase');
     }
 
-    // Adapt snake_case (DB) to camelCase (Frontend)
     // Adapt snake_case (DB) to camelCase (Frontend)
     return (data || []).map((item: any) => {
         // Handle 'Data Inicio' which might be a timestamp string "1752666900000"
@@ -65,18 +83,10 @@ export const fetchRawIncidents = async (): Promise<ApiIncident[]> => {
         return {
             data: dataIso,
             idEvento: item.id || item.idEvento || item.Ticket || 0,
-
-            // Map 'Sintoma' column (e.g., "SEM SINAL") to 'tipoEvento' (Category)
             tipoEvento: item['Sintoma'] || item.tipoEvento || 'N/A',
-
-            // Map 'Abrangencia' or 'Mercado'
             mercado: item['Abrangencia'] || item.mercado || 'N/A',
-
             natureza: item.natureza || 'Indefinido',
-
-            // Map 'Falha' column (e.g., "Problema HFC") to 'sintoma' (Specific Cause) for the chart
             sintoma: item['Falha'] || item.sintoma || item['Descrição'] || 'N/A',
-
             cidade: item['Cidade'] || item.cidade || 'N/A',
             grupo: item['Cluster'] || item.grupo || 'N/A',
             equipamento: item['Equipamento'] || item.equipamento || 'N/A',
@@ -106,7 +116,6 @@ export const calculateMetrics = (conteudo: ApiIncident[]): DashboardMetrics => {
     // Event Type Data (Now Falhas/Sintomas)
     const eventTypeMap: Record<string, number> = {};
     conteudo.forEach(item => {
-        // Use 'sintoma' for Top Falhas, fallback to 'tipoEvento' if missing
         const key = item.sintoma || item.tipoEvento || 'Outros';
         eventTypeMap[key] = (eventTypeMap[key] || 0) + 1;
     });
@@ -168,9 +177,7 @@ export const calculateMetrics = (conteudo: ApiIncident[]): DashboardMetrics => {
         .sort((a, b) => b.value - a.value)
         .slice(0, 10);
 
-    // Outage Detection Logic (Clusters with 'Sem Sinal' or 'Degradação')
-    // We group by 'Mercado' or 'Cidade' + 'Sintoma'.
-    // If a specific location has > 3 incidents of "Sem Sinal" or "Degradação", we flag it.
+    // Outage Detection Logic
     const outageMap: Record<string, { count: number, type: string }> = {};
 
     conteudo.forEach(item => {
@@ -185,7 +192,7 @@ export const calculateMetrics = (conteudo: ApiIncident[]): DashboardMetrics => {
     });
 
     const outages = Object.entries(outageMap)
-        .filter(([_, data]) => data.count >= 3) // Threshold for "Outage"
+        .filter(([_, data]) => data.count >= 3)
         .map(([market, data]) => ({
             market,
             type: data.type,
@@ -211,6 +218,107 @@ export const calculateMetrics = (conteudo: ApiIncident[]): DashboardMetrics => {
     };
 };
 
+export const calculateSgoMetrics = (incidents: SgoIncident[]): DashboardMetrics => {
+    const total = incidents.length;
+
+    // Classify based on nm_status (mapped to 'acionado' field)
+    // Pendentes: "Novo" + "Pendente"
+    // Tratadas: "Designado" + "Em Progresso"
+    const pending = incidents.filter(i => {
+        const status = i.acionado?.toLowerCase() || '';
+        return status.includes('novo') || status.includes('pendente');
+    }).length;
+
+    const treated = incidents.filter(i => {
+        const status = i.acionado?.toLowerCase() || '';
+        return status.includes('designado') || status.includes('progresso');
+    }).length;
+
+    const efficiency = total > 0 ? `${Math.round((treated / total) * 100)}%` : '0%';
+
+
+    // Evolution Data by dataInicio
+    const evolutionMap: Record<string, number> = {};
+    incidents.forEach(item => {
+        try {
+            const date = new Date(item.dataInicio);
+            const hour = date.getHours().toString().padStart(2, '0') + ':00';
+            evolutionMap[hour] = (evolutionMap[hour] || 0) + 1;
+        } catch (e) {
+            evolutionMap['00:00'] = (evolutionMap['00:00'] || 0) + 1;
+        }
+    });
+
+    const evolutionData = Object.entries(evolutionMap)
+        .map(([time, val]) => ({ time, val }))
+        .sort((a, b) => a.time.localeCompare(b.time));
+
+    // Top Failures by sintoma
+    const sintomaMap: Record<string, number> = {};
+    incidents.forEach(item => {
+        const key = item.sintoma || 'Outros';
+        sintomaMap[key] = (sintomaMap[key] || 0) + 1;
+    });
+
+    const colors = ['#e0062e', '#a855f7', '#3b82f6', '#10b981', '#f59e0b'];
+    const techData = Object.entries(sintomaMap)
+        .map(([name, count], index) => ({
+            name,
+            value: Math.round((count / total) * 100),
+            color: colors[index % colors.length]
+        }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 5);
+
+    // Top Cities & Matrix
+    const cityMap: Record<string, { total: number; failures: Record<string, number> }> = {};
+    const failureGlobalCount: Record<string, number> = {};
+
+    incidents.forEach(item => {
+        const city = item.cidade || 'N/A';
+        const failure = item.sintoma || 'Outros';
+
+        if (!cityMap[city]) cityMap[city] = { total: 0, failures: {} };
+        cityMap[city].total++;
+        cityMap[city].failures[failure] = (cityMap[city].failures[failure] || 0) + 1;
+
+        failureGlobalCount[failure] = (failureGlobalCount[failure] || 0) + 1;
+    });
+
+    const topFailures = Object.entries(failureGlobalCount)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([name]) => name);
+
+    const topCities = Object.entries(cityMap)
+        .map(([name, data]) => ({
+            name,
+            value: data.total,
+            stats: topFailures.map(fail => ({
+                name: fail,
+                count: data.failures[fail] || 0,
+                percent: Math.round(((data.failures[fail] || 0) / data.total) * 100)
+            })),
+            topFailure: Object.entries(data.failures).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A'
+        }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 10);
+
+    return {
+        total,
+        pending,
+        treated,
+        efficiency,
+        evolutionData,
+        techData,
+        topCities,
+        outages: [],
+        recentIncidents: [],
+        availableMarkets: [],
+        availableStatuses: []
+    };
+};
+
 export const fetchNewMonitor = async () => {
     try {
         const response = await fetch('https://newmonitor.claro.com.br/json/outage.php');
@@ -222,13 +330,39 @@ export const fetchNewMonitor = async () => {
     }
 };
 
-export const fetchSGO = async () => {
-    try {
-        const response = await fetch('http://10.29.5.216/scr/sgo_incidentes_abertos.php');
-        if (!response.ok) throw new Error('SGO API error');
-        return await response.json();
-    } catch (e) {
-        console.error('SGO Fetch Error (Internal IP):', e);
+export const fetchSGO = async (): Promise<SgoIncident[]> => {
+    console.log('🔍 [SGO] Starting fetch from Supabase...');
+
+    const { data, error } = await supabase
+        .from('SGO')
+        .select('*');
+
+    if (error) {
+        console.error('❌ [SGO] Fetch Error:', error);
         return [];
     }
+
+    console.log('✅ [SGO] Data fetched successfully:', {
+        count: data?.length || 0,
+        sample: data?.[0] || 'No data'
+    });
+
+    return (data || []).map((item: any) => ({
+        ticket: item.id_mostra || 'N/A',
+        incidente: item.nm_origem || 'N/A',
+        sintoma: item.nm_tipo || 'N/A',
+        acionado: item.nm_status || 'N/A',
+        dataInicio: item.dh_inicio || 'N/A',
+        observacao: item.ds_sumario || 'N/A',
+        cidade: item.nm_cidade || 'N/A',
+        node: item.topologia || 'N/A',
+        tecnologia: item.tp_topologia || 'N/A',
+        rede: item.nm_cat_prod2 || 'N/A',
+        sintomaOper: item.nm_cat_oper2 || 'N/A',
+        impacto: item.nm_cat_oper3 || 'N/A',
+        regional: item.regional || 'N/A',
+        grupo: item.grupo || 'N/A',
+        cluster: item.cluster || 'N/A',
+        subcluster: item.subcluster || 'N/A'
+    }));
 };
