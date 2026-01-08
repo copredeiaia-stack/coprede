@@ -24,6 +24,13 @@ export interface DashboardMetrics {
     recentIncidents: any[];
     availableMarkets: string[];
     availableStatuses: string[];
+    topCities: {
+        name: string;
+        value: number;
+        topFailure: string;
+        stats: { name: string; count: number; percent: number }[];
+    }[];
+    outages: { market: string; type: string; count: number }[];
 }
 
 // Legacy API URL removed in favor of Supabase
@@ -70,9 +77,9 @@ export const fetchRawIncidents = async (): Promise<ApiIncident[]> => {
             // Map 'Falha' column (e.g., "Problema HFC") to 'sintoma' (Specific Cause) for the chart
             sintoma: item['Falha'] || item.sintoma || item['Descrição'] || 'N/A',
 
-            cidade: item.cidade || 'N/A',
-            grupo: item.grupo || 'N/A',
-            equipamento: item.equipamento || 'N/A',
+            cidade: item['Cidade'] || item.cidade || 'N/A',
+            grupo: item['Cluster'] || item.grupo || 'N/A',
+            equipamento: item['Equipamento'] || item.equipamento || 'N/A',
             dataPrev: item['Previsão'] || item.dataPrev || null,
             associados: item.associados || []
         };
@@ -123,6 +130,69 @@ export const calculateMetrics = (conteudo: ApiIncident[]): DashboardMetrics => {
         type: i.sintoma
     }));
 
+    // Top 10 Cities & Matrix Data
+    const cityMap: Record<string, { total: number; failures: Record<string, number> }> = {};
+    const failureGlobalCount: Record<string, number> = {};
+
+    conteudo.forEach(item => {
+        const city = item.cidade || 'N/A';
+        const failure = item.sintoma || item.tipoEvento || 'Outros';
+
+        // City Stats
+        if (!cityMap[city]) cityMap[city] = { total: 0, failures: {} };
+        cityMap[city].total++;
+        cityMap[city].failures[failure] = (cityMap[city].failures[failure] || 0) + 1;
+
+        // Global Failure Stats
+        failureGlobalCount[failure] = (failureGlobalCount[failure] || 0) + 1;
+    });
+
+    // Identify Top 5 Global Failures for Matrix Columns
+    const topFailures = Object.entries(failureGlobalCount)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([name]) => name);
+
+    // Compute Top Cities with Matrix Data
+    const topCities = Object.entries(cityMap)
+        .map(([name, data]) => ({
+            name,
+            value: data.total,
+            stats: topFailures.map(fail => ({
+                name: fail,
+                count: data.failures[fail] || 0,
+                percent: Math.round(((data.failures[fail] || 0) / data.total) * 100)
+            })),
+            topFailure: Object.entries(data.failures).sort((a, b) => b[1] - a[1])[0]?.[0] || 'N/A'
+        }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 10);
+
+    // Outage Detection Logic (Clusters with 'Sem Sinal' or 'Degradação')
+    // We group by 'Mercado' or 'Cidade' + 'Sintoma'.
+    // If a specific location has > 3 incidents of "Sem Sinal" or "Degradação", we flag it.
+    const outageMap: Record<string, { count: number, type: string }> = {};
+
+    conteudo.forEach(item => {
+        const sintoma = (item.sintoma || '').toUpperCase();
+        if (sintoma.includes('SEM SINAL') || sintoma.includes('DEGRADAÇÃO')) {
+            const key = item.cidade || item.mercado || 'N/A';
+            if (!outageMap[key]) {
+                outageMap[key] = { count: 0, type: sintoma.includes('SEM SINAL') ? 'SEM SINAL' : 'DEGRADAÇÃO' };
+            }
+            outageMap[key].count++;
+        }
+    });
+
+    const outages = Object.entries(outageMap)
+        .filter(([_, data]) => data.count >= 3) // Threshold for "Outage"
+        .map(([market, data]) => ({
+            market,
+            type: data.type,
+            count: data.count
+        }))
+        .sort((a, b) => b.count - a.count);
+
     const availableMarkets = Array.from(new Set(conteudo.map(i => i.mercado))).sort();
     const availableStatuses = ['Todos', 'Pendentes', 'Tratadas'];
 
@@ -133,6 +203,8 @@ export const calculateMetrics = (conteudo: ApiIncident[]): DashboardMetrics => {
         efficiency,
         evolutionData,
         techData,
+        topCities,
+        outages,
         recentIncidents,
         availableMarkets,
         availableStatuses

@@ -370,7 +370,28 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenIncident, session })
         </div>
       </div>
 
-      {/* Charts & Technology */}
+      {/* Outage Alerts Banner */}
+      {filteredMetrics.outages.length > 0 && (
+        <div className="bg-red-500/10 border border-red-500/50 rounded-3xl p-6 mb-8 animate-pulse">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-red-500 rounded-full text-white">
+              <span className="material-symbols-outlined filled">fmd_bad</span>
+            </div>
+            <div>
+              <h2 className="text-xl font-black text-red-500 uppercase tracking-widest">Alerta de Outage Detectado</h2>
+              <div className="flex flex-wrap gap-2 mt-2">
+                {filteredMetrics.outages.map((outage, idx) => (
+                  <span key={idx} className="bg-red-500/20 text-red-400 text-xs font-bold px-3 py-1 rounded-lg border border-red-500/20">
+                    {outage.market}: {outage.type} (Vol: {outage.count})
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Top 10 Cities & Technology */}
       <div className="grid grid-cols-12 gap-6">
         <div className="col-span-12 lg:col-span-7 bg-surface-dark rounded-3xl p-8 border border-white/5">
           <div className="flex items-center justify-between mb-8">
@@ -422,35 +443,58 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenIncident, session })
         </div>
       </div>
 
-      {/* Recent Alerts */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-white">Alertas Filtrados</h2>
-          <button className="text-sm font-bold text-primary">Ver todos</button>
-        </div>
-        <div className="grid md:grid-cols-2 gap-4">
-          {filteredMetrics.recentIncidents.map((inc) => (
-            <div
-              key={inc.id}
-              onClick={onOpenIncident}
-              className={`flex flex-col gap-4 bg-surface-dark p-6 rounded-3xl border border-white/5 hover:border-primary/30 transition-all cursor-pointer border-l-4 ${inc.status === 'critical' ? 'border-l-primary' : 'border-l-warning'}`}
-            >
-              <div className="flex items-start justify-between">
-                <div className="flex gap-4">
-                  <div className={`p-2 rounded-2xl ${inc.status === 'critical' ? 'bg-primary/10 text-primary' : 'bg-warning/10 text-warning'}`}>
-                    <span className="material-symbols-outlined">{inc.status === 'critical' ? 'warning' : 'bolt'}</span>
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-white leading-tight">{inc.title}</h3>
-                    <p className="text-xs text-gray-400 font-medium mt-1">{inc.location}</p>
-                    <p className={`text-[10px] font-black uppercase mt-3 tracking-widest ${inc.status === 'critical' ? 'text-primary' : 'text-warning'}`}>
-                      {inc.time} • {inc.type}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
+      {/* Top 10 Cidades x Falhas (Dynamic Matrix) */}
+      <section className="space-y-6">
+        <h2 className="text-xl font-bold text-white">Matriz de Ofensores: Top 10 Cidades</h2>
+
+        <div className="overflow-x-auto rounded-3xl border border-white/5">
+          <table className="w-full text-left border-collapse">
+            <thead>
+              <tr className="bg-surface-dark border-b border-white/5">
+                <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-widest text-left">Ranking</th>
+                <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-widest text-left">Cidade</th>
+                <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-widest text-center">Total</th>
+                <th className="p-4 text-xs font-black text-gray-500 uppercase tracking-widest text-left">Principal Ofensor</th>
+                {/* Dynamic Columns for Top Global Failures */}
+                {filteredMetrics.topCities[0]?.stats.map((stat, i) => (
+                  <th key={i} className="p-4 text-[10px] font-black text-gray-600 uppercase tracking-widest text-center hidden md:table-cell max-w-[100px] truncate" title={stat.name}>
+                    {stat.name.split(':')[1] || stat.name}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-white/5 bg-surface-dark/50">
+              {filteredMetrics.topCities.map((city, idx) => (
+                <tr key={idx} className="hover:bg-white/5 transition-colors group">
+                  <td className="p-4">
+                    <span className={`text-xs font-black px-2 py-1 rounded-lg ${idx < 3 ? 'bg-primary/20 text-primary' : 'bg-white/5 text-gray-500'}`}>#{idx + 1}</span>
+                  </td>
+                  <td className="p-4 font-bold text-gray-300 group-hover:text-white transition-colors">{city.name}</td>
+                  <td className="p-4 text-center font-black text-white">{city.value}</td>
+                  <td className="p-4">
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold text-white truncate max-w-[150px]" title={city.topFailure}>{city.topFailure}</span>
+                      <div className="h-1 w-full bg-white/10 rounded-full mt-1 overflow-hidden">
+                        <div className="h-full bg-primary" style={{ width: `${city.stats.find(s => s.name === city.topFailure)?.percent || 0}%` }}></div>
+                      </div>
+                    </div>
+                  </td>
+                  {/* Stats Cells */}
+                  {city.stats.map((stat, i) => (
+                    <td key={i} className="p-4 text-center hidden md:table-cell">
+                      {stat.count > 0 ? (
+                        <span className="text-xs font-bold text-gray-400" title={`${stat.count} (${stat.percent}%)`}>
+                          {stat.count}
+                        </span>
+                      ) : (
+                        <span className="text-gray-800 text-[10px]">•</span>
+                      )}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </section>
     </div>
