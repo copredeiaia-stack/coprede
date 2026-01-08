@@ -1,3 +1,5 @@
+import { supabase } from './supabaseClient';
+
 export interface ApiIncident {
     data: string;
     idEvento: number;
@@ -24,13 +26,34 @@ export interface DashboardMetrics {
     availableStatuses: string[];
 }
 
-const API_URL = 'http://201.55.232.150/api/relatorios/acompanhamentoCentralizado/tabela-analitica-extracao?loginUsuario=N0057998';
+// Legacy API URL removed in favor of Supabase
+// const API_URL = 'http://201.55.232.150/api/relatorios/acompanhamentoCentralizado/tabela-analitica-extracao?loginUsuario=N0057998';
 
 export const fetchRawIncidents = async (): Promise<ApiIncident[]> => {
-    const response = await fetch(API_URL);
-    if (!response.ok) throw new Error('Falha ao carregar dados da API');
-    const data = await response.json();
-    return data.conteudo || [];
+    const { data, error } = await supabase
+        .from('Newmonitor')
+        .select('*');
+
+    if (error) {
+        console.error('Supabase Fetch Error:', error);
+        throw new Error('Falha ao carregar dados do Supabase');
+    }
+
+    // Adapt snake_case (DB) to camelCase (Frontend)
+    // We try both to be robust against schema variations
+    return (data || []).map((item: any) => ({
+        data: item.data || item.Data || new Date().toISOString(), // Fallback if missing
+        idEvento: item.idEvento || item.id_evento || item.Ticket || 0,
+        tipoEvento: item.tipoEvento || item.tipo_evento || item.TipoEvento || 'N/A',
+        mercado: item.mercado || item.Mercado || 'N/A',
+        natureza: item.natureza || item.Natureza || 'Indefinido',
+        sintoma: item.sintoma || item.Sintoma || 'N/A',
+        cidade: item.cidade || item.Cidade || 'N/A',
+        grupo: item.grupo || item.Grupo || item.Cluster || 'N/A',
+        equipamento: item.equipamento || item.Equipamento || 'N/A',
+        dataPrev: item.dataPrev || item.data_prev || null,
+        associados: item.associados || []
+    }));
 };
 
 export const calculateMetrics = (conteudo: ApiIncident[]): DashboardMetrics => {

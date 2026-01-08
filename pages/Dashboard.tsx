@@ -43,7 +43,7 @@ export const Dashboard: React.FC<DashboardProps> = ({ onOpenIncident, session })
     };
 
     loadData();
-    const interval = setInterval(loadData, 600000); // 10 min refresh
+    const interval = setInterval(loadData, 300000); // 5 min refresh
     return () => clearInterval(interval);
   }, []);
 
